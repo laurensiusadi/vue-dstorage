@@ -3,20 +3,27 @@
     <navbar :account="account"></navbar>
     <div v-if="loading">Loading...</div>
     <template v-else>
-      <div>Main</div>
+      <files
+        :files="files"
+        @capture-file="captureFile"
+        @upload-file="uploadFile"
+      ></files>
     </template>
   </div>
 </template>
 
 <script>
 import Web3 from 'web3'
+import ipfsClient from 'ipfs-http-client'
 import DStorage from '../abis/DStorage.json'
 import Navbar from '@/components/Navbar'
+import Files from '@/components/Files.vue'
 
 export default {
   name: 'Home',
   components: {
-    Navbar
+    Navbar,
+    Files
   },
   data() {
     return {
@@ -25,12 +32,16 @@ export default {
       files: [],
       loading: false,
       type: null,
-      name: null
+      name: null,
+      ipfs: null
     }
   },
   created() {
     this.loadWeb3()
     this.loadBlockchainData()
+  },
+  mounted() {
+    this.ipfs = ipfsClient({ host: 'ipfs.infura.io', port: 5001, protocol: 'https' })
   },
   methods: {
     async loadWeb3() {
@@ -61,6 +72,47 @@ export default {
       } else {
         window.alert('DStorage contract not deployed to detected network.')
       }
+    },
+    captureFile(event) {
+      event.preventDefault()
+
+      const file = event.target.files[0]
+      const reader = new window.FileReader()
+
+      reader.readAsArrayBuffer(file)
+      reader.onloadend = () => {
+        this.buffer = Buffer.from(reader.result)
+        this.type = file.type
+        this.name = file.name
+        console.log('buffer', this.buffer)
+      }
+    },
+    uploadFile(description) {
+      console.log('Submitting file to IPFS...', this.ipfs)
+
+      // Add file to the IPFS
+      this.ipfs.add(this.buffer, (error, result) => {
+        console.log('IPFS result', result.size)
+        if (error) {
+          console.error(error)
+          return
+        }
+
+        this.loading = true
+        // Assign value for the file without extension
+        if (this.type === '') {
+          this.type = 'none'
+        }
+        this.dstorage.methods.uploadFile(result[0].hash, result[0].size, this.type, this.name, description).send({ from: this.account }).on('transactionHash', (hash) => {
+          this.loading = false
+          this.type = null
+          this.name = null
+          window.location.reload()
+        }).on('error', (e) => {
+          window.alert('Error')
+          this.loading = false
+        })
+      })
     }
   }
 }
