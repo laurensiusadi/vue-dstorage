@@ -14,7 +14,6 @@
 
 <script>
 import Web3 from 'web3'
-import ipfsClient from 'ipfs-http-client'
 import DStorage from '../abis/DStorage.json'
 import Navbar from '@/components/Navbar'
 import Files from '@/components/Files.vue'
@@ -32,16 +31,12 @@ export default {
       files: [],
       loading: false,
       type: null,
-      name: null,
-      ipfs: null
+      name: null
     }
   },
   created() {
     this.loadWeb3()
     this.loadBlockchainData()
-  },
-  mounted() {
-    this.ipfs = ipfsClient({ host: 'ipfs.infura.io', port: 5001, protocol: 'https' })
   },
   methods: {
     async loadWeb3() {
@@ -87,23 +82,21 @@ export default {
         console.log('buffer', this.buffer)
       }
     },
-    uploadFile(description) {
-      console.log('Submitting file to IPFS...', this.ipfs)
+    async uploadFile(description) {
+      console.log('Submitting file to IPFS...')
+      const ipfs = await this.$ipfs
 
-      // Add file to the IPFS
-      this.ipfs.add(this.buffer, (error, result) => {
-        console.log('IPFS result', result.size)
-        if (error) {
-          console.error(error)
-          return
-        }
+      try {
+        // Add file to the IPFS
+        const result = await ipfs.add(this.buffer)
+        console.log('IPFS result', result)
 
         this.loading = true
         // Assign value for the file without extension
         if (this.type === '') {
           this.type = 'none'
         }
-        this.dstorage.methods.uploadFile(result[0].hash, result[0].size, this.type, this.name, description).send({ from: this.account }).on('transactionHash', (hash) => {
+        this.dstorage.methods.uploadFile(result.path, result.size, this.type, this.name, description).send({ from: this.account }).on('transactionHash', (hash) => {
           this.loading = false
           this.type = null
           this.name = null
@@ -112,7 +105,9 @@ export default {
           window.alert('Error')
           this.loading = false
         })
-      })
+      } catch (err) {
+        console.log(err)
+      }
     }
   }
 }
