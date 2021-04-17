@@ -9,7 +9,7 @@ contract DStorage {
   struct File {
     uint fileId;
     string fileHash;
-    uint filesSize;
+    uint fileSize;
     string fileType;
     string fileName;
     string fileDescription;
@@ -20,7 +20,7 @@ contract DStorage {
   event FileUploaded(
     uint fileId,
     string fileHash,
-    uint filesSize,
+    uint fileSize,
     string fileType,
     string fileName,
     string fileDescription,
